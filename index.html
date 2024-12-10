@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Mod Links and Reporting</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #chat-container {
+            width: 80%;
+            margin: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        #messages {
+            height: 300px;
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #fff;
+        }
+        .message {
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+        .report-btn {
+            background-color: red;
+            color: white;
+            border: none;
+            padding: 3px 6px;
+            cursor: pointer;
+        }
+        .admin-controls, .mod-links {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chat with Mod Links and Reporting</h1>
+    <div id="login-container">
+        <h3>Login</h3>
+        <label for="username">Username:</label>
+        <input type="text" id="username" required>
+        <label for="password">Password:</label>
+        <input type="password" id="password">
+        <button id="login-btn">Login</button>
+    </div>
+
+    <div id="chat-container" style="display: none;">
+        <h3>Welcome, <span id="current-user"></span>!</h3>
+        <div id="messages"></div>
+        <input type="text" id="message" placeholder="Type your message">
+        <button id="send-btn">Send</button>
+
+        <div class="admin-controls">
+            <input type="text" id="ban-username" placeholder="Username to ban">
+            <button id="ban-btn">Ban User</button>
+        </div>
+
+        <div class="mod-links">
+            <h3>Mod Links</h3>
+            <a href="https://example.com/mod-dashboard" target="_blank">Mod Dashboard</a><br>
+            <a href="https://example.com/reports" target="_blank">View Reports</a><br>
+            <a href="https://example.com/settings" target="_blank">Settings</a>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let reportedMessages = [];
+        const bannedUsers = JSON.parse(localStorage.getItem('bannedUsers')) || [];
+        const loggedOutAdmins = JSON.parse(localStorage.getItem('loggedOutAdmins')) || [];
+
+        // Login logic
+        document.getElementById("login-btn").addEventListener("click", function () {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            if (!username) {
+                alert("Username is required");
+                return;
+            }
+
+            currentUser = { name: username, role: password === "admin" ? "admin" : "user" };
+
+            // Show mod controls and links if the user is an admin
+            if (currentUser.role === "admin") {
+                document.querySelector(".admin-controls").style.display = "block";
+                document.querySelector(".mod-links").style.display = "block";
+            }
+
+            // Display the chat container
+            document.getElementById("current-user").innerText = username;
+            document.getElementById("login-container").style.display = "none";
+            document.getElementById("chat-container").style.display = "block";
+        });
+
+        // Ban logic (Only for admins)
+        document.getElementById("ban-btn").addEventListener("click", function () {
+            if (currentUser.role !== "admin") {
+                alert("You do not have permission to ban users.");
+                return;
+            }
+
+            const usernameToBan = document.getElementById("ban-username").value;
+            if (usernameToBan) {
+                bannedUsers.push({ username: usernameToBan, timestamp: new Date().toLocaleString() });
+                localStorage.setItem('bannedUsers', JSON.stringify(bannedUsers));
+
+                alert(`${usernameToBan} has been banned.`);
+                // Optionally, also add to the logs page (logs.html)
+                window.location.href = 'logs.html'; // Redirect to logs page to see the updated list
+            }
+        });
+
+        // Admin logout logic
+        window.addEventListener("beforeunload", function () {
+            if (currentUser.role === "admin") {
+                loggedOutAdmins.push({ username: currentUser.name, timestamp: new Date().toLocaleString() });
+                localStorage.setItem('loggedOutAdmins', JSON.stringify(loggedOutAdmins));
+            }
+        });
+
+        // Send message logic
+        const messages = [];
+        document.getElementById("send-btn").addEventListener("click", function () {
+            const messageInput = document.getElementById("message").value;
+            if (!messageInput) return;
+
+            if (bannedUsers.some(user => user.username === currentUser.name)) {
+                alert("You are banned and cannot send messages.");
+                return;
+            }
+
+            const message = { user: currentUser.name, text: messageInput };
+            messages.push(message);
+            renderMessages();
+            document.getElementById("message").value = "";
+        });
+
+        // Render messages with report buttons
+        function renderMessages() {
+            const messagesDiv = document.getElementById("messages");
+            messagesDiv.innerHTML = "";
+            messages.forEach((msg, index) => {
+                const msgDiv = document.createElement("div");
+                msgDiv.className = "message";
+
+                const textDiv = document.createElement("span");
+                textDiv.textContent = `${msg.user}: ${msg.text}`;
+
+                const reportBtn = document.createElement("button");
+                reportBtn.textContent = "Report";
+                reportBtn.className = "report-btn";
+                reportBtn.onclick = () => {
+                    reportMessage(index);
+                };
+
+                msgDiv.appendChild(textDiv);
+                msgDiv.appendChild(reportBtn);
+                messagesDiv.appendChild(msgDiv);
+            });
+        }
+
+        // Report a message
+        function reportMessage(index) {
+            const reportedMsg = messages[index];
+            reportedMessages.push(reportedMsg);
+            alert(`Message reported: "${reportedMsg.text}"`);
+            console.log("Reported Messages:", reportedMessages);
+        }
+    </script>
+</body>
+</html>
